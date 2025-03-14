@@ -1,10 +1,7 @@
-HELP.md
-.gradle
+target/
+.settings/
+.classpath
+.project
 bin/
 build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-.classpath/
-.project/
-*.log
+/.gradle/
