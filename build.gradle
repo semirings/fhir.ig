@@ -6,10 +6,15 @@ plugins {
     id 'maven-publish'
 }
 
+application {
+    applicationDefaultJvmArgs = ['-Dgreeting.language=en']
+    mainClass = 'org.psoppc.fhir.AHRQProfiler'
+}
+
 group = 'org.psoppc.fhir'
 version = '0.0.1' // Set project-level property
 def applicationName = 'psoppc.ig' // Local variable for the artifact name
-mainClassName = 'org.psoppc.fhir.AHRQProfiler'
+
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -34,13 +39,11 @@ sourceSets {
 }
 
 dependencies {
-    implementation project(':fhir.serdeser')
+    implementation 'org.hl7.fhir.emf:fhir.serdeser:0.0.1'
 	implementation 'org.hl7:fhir.emf:4.3.0'
 	implementation 'org.eclipse.emf:org.eclipse.emf.common:2.40.0'
 	implementation 'org.eclipse.emf:org.eclipse.emf.ecore:2.38.0'
 	implementation 'org.eclipse.emf:org.eclipse.emf.ecore.xmi:2.38.0'
-    // implementation 'org.eclipse.emf:org.eclipse.emf.codegen:2.38.0'
-    // implementation 'org.eclipse.emf:org.eclipse.emf.codegen.ecore:2.38.0'
 
    	implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.6'
    	
@@ -60,12 +63,15 @@ dependencies {
 
 jar {
     manifest {
-        attributes 'Main-Class': mainClassName
+        attributes 'Main-Class': provider { application.mainClass.get() }
     }
     
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE  // Ignore duplicate entries
+
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
+    exclude("META-INF/*.RSA", "META-INF/*.DSA", "META-INF/*.SF", "META-INF/MANIFEST.MF")
 }
 
 processResources {
@@ -77,6 +83,27 @@ processResources {
 test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
+}
+
+task checkSignedJars {
+    doLast {
+        println "Scanning for signed JARs..."
+        configurations.runtimeClasspath.files.each { jarFile ->
+            if (jarFile.name.endsWith(".jar")) {
+                println "Checking: ${jarFile.name}"
+                def hasSignature = false
+                zipTree(jarFile).visit { file ->
+                    if (file.name.matches("META-INF/.*\\.(SF|RSA|DSA|EC)")) {
+                        println "Found signed JAR: ${jarFile.name} (Signature File: ${file.name})"
+                        hasSignature = true
+                    }
+                }
+                if (!hasSignature) {
+                    println "No signature found in: ${jarFile.name}"
+                }
+            }
+        }
+    }
 }
 
 publishing {
