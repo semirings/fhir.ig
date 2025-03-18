@@ -33,9 +33,9 @@ public class AHRQProfiler implements Runnable {
 
 	public void run() {
 		InputStream reader = AHRQProfiler.class.getClassLoader().getResourceAsStream("StructureDefinition-de-identified-uds-plus-patient.xml");
+		log.info("reader=" + reader.toString());
 		InputStream reader1 = AHRQProfiler.class.getClassLoader().getResourceAsStream("fhir.ecore");
 		EObject eObject = FHIRSerDeser.load(reader, Finals.SDS_FORMAT.XML);
-
 	}
 
 	public static void main(String[] args) {
