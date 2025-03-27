@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.eclipse.emf.ecore.EClass;
+import org.eclipse.emf.ecore.EClassifier;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EStructuralFeature;
@@ -12,16 +14,22 @@ import org.hl7.fhir.StructureDefinition;
 import org.hl7.fhir.StructureDefinitionSnapshot;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.kohsuke.args4j.CmdLineException;
 
 public class AHRQProfilerTest {
 
-	static AHRQProfiler app;
+	static AHRQProfiler sut;
 	static EObject profile;
 	static EObject spec;
 
 	@BeforeAll
 	static void beforAll() {
-		app = new AHRQProfiler();
+		String[] ss = {"-p", "StructureDefinition-qicore-adverseevent.xml", "-i", "fhir.ecore", "-o", "out.ecore"};
+		try {
+			sut = new AHRQProfiler(ss);
+		} catch (CmdLineException e) {
+			e.printStackTrace();
+		}
 		// InputStream readerProfile = AHRQProfilerTest.class.getClassLoader().getResourceAsStream("StructureDefinition-de-identified-uds-plus-patient.xml");
 		// assertNotNull(readerProfile);
 		// profile = FHIRSerDeser.load(readerProfile, Finals.SDS_FORMAT.XML);
@@ -42,45 +50,67 @@ public class AHRQProfilerTest {
 
 	@Test 
 	void testLoadProfile() {
-		StructureDefinition profile = app.loadProfile();
+		StructureDefinition profile = sut.loadProfile();
 		assertNotNull(profile);
 	}
 
 	@Test 
 	void testLoadSpec() {
-		EPackage spec = app.loadSpec();
+		EPackage spec = sut.loadSpec();
 		assertNotNull(spec);
 	}
 	@Test
 	void testPopulateEcoreOut() {
-		StructureDefinition profile = app.loadProfile();
-		EPackage spec = app.loadSpec();
-		EPackage out = app.copySpec(spec);
-		app.clearClassifiers(out);
+		StructureDefinition profile = sut.loadProfile();
+		EPackage spec = sut.loadSpec();
+		EPackage out = sut.copySpec(spec);
+		sut.clearClassifiers(out);
 		assertEquals(0, out.getEClassifiers().size());
 
 		StructureDefinitionSnapshot snap = profile.getSnapshot();
-		app.populateEcoreOut(snap, spec, out);
+		sut.populateEcoreOut(snap, spec, out);
 
 	}
 
 	@Test
 	void testApplySnapshotElementToFeature() {
-		StructureDefinition profile = app.loadProfile();
-		EPackage spec = app.loadSpec();
-		EPackage out = app.copySpec(spec);
-		app.clearClassifiers(out);
+		StructureDefinition profile = sut.loadProfile();
+		EPackage spec = sut.loadSpec();
+		EPackage out = sut.copySpec(spec);
+		StructureDefinitionSnapshot snap = profile.getSnapshot();
+		sut.clearClassifiers(out);
 		assertEquals(0, out.getEClassifiers().size());
 
-		StructureDefinitionSnapshot snap = profile.getSnapshot();
-		EStructuralFeature feature = snap.eClass().getEStructuralFeature("actuality");
-		Object obj = snap.eGet(feature);
-		ElementDefinition elem = null;
-		if (obj instanceof ElementDefinition) {
-			elem = (ElementDefinition)obj;
+
+		EStructuralFeature actuality = null;
+		EClassifier classifier = spec.getEClassifier("AdverseEvent");
+		if (classifier instanceof EClass adverseEventClass) {
+			actuality = adverseEventClass.getEStructuralFeature("actuality");
+			if (actuality != null) {
+				System.out.println("Found feature: " + actuality.getName());
+			} else {
+				System.err.println("❌ Feature 'actuality' not found in AdverseEvent");
+			}
+		} else {
+			System.err.println("❌ EClass 'AdverseEvent' not found in EPackage");
 		}
 
-		app.applySnapshotElementToFeature(elem, feature);
-		assertNotNull(feature);
+
+		ElementDefinition ed = null;
+		for (ElementDefinition ed1 : snap.getElement()) {
+			if ("AdverseEvent.actuality".equals(ed1.getPath().getValue())) {
+				ed = ed1;
+				break;
+			} else {
+				continue;
+			}
+		}
+		assertNotNull(ed);
+		
+		sut.applySnapshotElementToFeature(ed, actuality);
+		assertEquals(1, actuality.getLowerBound());
+		assertEquals(1, actuality.getUpperBound());
 	}
+
+	
 }

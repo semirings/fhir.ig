@@ -1,10 +1,12 @@
 package org.psoppc.fhir;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
 
-import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EAnnotation;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EClassifier;
@@ -14,12 +16,17 @@ import org.eclipse.emf.ecore.EcoreFactory;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.hl7.fhir.ElementDefinition;
 import org.hl7.fhir.ElementDefinitionBinding;
+import org.hl7.fhir.ElementDefinitionDiscriminator;
+import org.hl7.fhir.ElementDefinitionSlicing;
 import org.hl7.fhir.StructureDefinition;
-import org.hl7.fhir.StructureDefinitionDifferential;
 import org.hl7.fhir.StructureDefinitionSnapshot;
 import org.hl7.fhir.UnsignedInt;
 import org.hl7.fhir.emf.FHIRSerDeser;
 import org.hl7.fhir.emf.Finals;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.spi.OptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +37,30 @@ public class AHRQProfiler implements Runnable {
 	public static final java.lang.String ECORE_GENMODEL_URL = "http://www.eclipse.org/emf/2002/GenModel";
 	public static final java.lang.String HL7_FHIR_URL = "http://hl7.org/fhir";
 
+    private CmdLineParser CLI;
+
+    @Option(name = "-p", aliases = "--profile", required = false, usage = "Path to the profile")
+    private String profile;
+
+    @Option(name = "-i", aliases = "--input", required = false, usage = "Path to fhir.ecore")
+    private String input;
+
+    @Option(name = "-o", aliases = "--output", required = false, usage = "Path to out.ecore.")
+    private String output;
+
+	@Option(name = "-h", aliases = {"--help"}, help = true, usage = "Display help")
+	private boolean help;
+
+    public AHRQProfiler(String[] args) throws CmdLineException {
+        try {
+			CLI = new CmdLineParser(AHRQProfiler.this);
+            CLI.parseArgument(args);
+        } catch (CmdLineException e) {
+            log.error("", e);
+        }
+    }
+
+
 	public void run() {
 		StructureDefinition profile = loadProfile();
 		EPackage spec = loadSpec();
@@ -37,14 +68,24 @@ public class AHRQProfiler implements Runnable {
 		clearClassifiers(out);
 		StructureDefinitionSnapshot snap = profile.getSnapshot();
 		populateEcoreOut(snap, spec, out);
-
-
-
-		StructureDefinitionDifferential diff = profile.getDifferential();
-		// EList<ElementDefinition> snapEls = snap.getElement();
-		// EList<ElementDefinition> diffEls = diff.getElement();
 		OutputStream writer = FHIRSerDeser.save(out, Finals.SDS_FORMAT.ECORE);
+		try {
+			FileWriter fileOut = new FileWriter(new File(output));
+			fileOut.write(writer.toString());
+			fileOut.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
+
+    public boolean isHelp() {
+        return help;
+    }
+
+    private void printUsage() {
+        System.out.println("Usage:");
+        CLI.printUsage(System.out);
+    }
 
     public void populateEcoreOut(StructureDefinitionSnapshot snap, EPackage spec, EPackage out) {
         for (ElementDefinition elem : snap.getElement()) {
@@ -57,6 +98,7 @@ public class AHRQProfiler implements Runnable {
             String elemFeatureName = parts[1];
 
             // Find the source EClass in the spec package
+
             EClassifier elemClassifier = spec.getEClassifier(elemClassName);
             if (!(isInSpec(elemClassName, spec))) {
                 log.error("⚠️ Could not find EClass " + elemClassName + " in spec.");
@@ -84,6 +126,7 @@ public class AHRQProfiler implements Runnable {
 
             // Optional: apply snapshot constraints
             applySnapshotElementToFeature(elem, copiedFeature);
+			applySlice(elem, copiedFeature);
         }
     }
 
@@ -96,15 +139,82 @@ public class AHRQProfiler implements Runnable {
 		 }
 	}
 
+	public void applyBounds(ElementDefinition snapshotElem, EStructuralFeature outFeature) {
+		applyLowerBounds(snapshotElem, outFeature);
+		applyUpperBounds(snapshotElem, outFeature);
+	}
+
+	public void applyLowerBounds(ElementDefinition snapshotElem, EStructuralFeature outFeature) {
+		UnsignedInt uint = snapshotElem.getMin();
+		BigInteger bigInt = uint.getValue();
+		Integer min = bigInt.intValue();
+
+		if (min != null) {
+			outFeature.setLowerBound(min);
+		}
+	}
+
+	public void applyUpperBounds(ElementDefinition snapshotElem, EStructuralFeature outFeature) {
+		String maxStr = snapshotElem.getMax().getValue();
+		if (maxStr != null) {
+			if ("*".equals(maxStr)) {
+				outFeature.setUpperBound(EStructuralFeature.UNBOUNDED_MULTIPLICITY);
+			} else {
+				try {
+					outFeature.setUpperBound(Integer.parseInt(maxStr));
+				} catch (NumberFormatException e) {
+					System.err.println("⚠️ Invalid max cardinality: " + maxStr);
+				}
+			}
+		}
+	}
+
+	public void applySlice(ElementDefinition snapshotElem, EStructuralFeature outFeature) {
+
+		ElementDefinitionSlicing slicing = snapshotElem.getSlicing();
+
+		if (slicing == null) {
+			return;
+		}
+
+		// Create an annotation for the slicing metadata
+		EAnnotation slicingAnnotation = EcoreFactory.eINSTANCE.createEAnnotation();
+		slicingAnnotation.setSource("http://hl7.org/fhir/slicing");
+
+		// Add discriminator(s)
+		int index = 0;
+		for (ElementDefinitionDiscriminator discriminator : slicing.getDiscriminator()) {
+			String type = discriminator.getType().getValue().getLiteral();
+			String path = discriminator.getPath().getValue();
+			slicingAnnotation.getDetails().put("discriminator:" + index, type + ":" + path);
+			index++;
+		}
+
+		// Add other slicing attributes
+		if (slicing.getRules() != null) {
+			slicingAnnotation.getDetails().put("rules", slicing.getRules().getValue().getLiteral());
+		}
+		if (slicing.getOrdered() != null) {
+			slicingAnnotation.getDetails().put("ordered", slicing.getOrdered().toString());
+		}
+		if (slicing.getDescription() != null && !slicing.getDescription().getValue().isEmpty()) {
+			slicingAnnotation.getDetails().put("description", slicing.getDescription().getValue());
+		}
+
+		// Attach the annotation to the EStructuralFeature
+		outFeature.getEAnnotations().add(slicingAnnotation);
+	}
+
+
 	StructureDefinition loadProfile() {
 		InputStream reader = AHRQProfiler.class.getClassLoader()
-			.getResourceAsStream("StructureDefinition-de-identified-uds-plus-patient.xml");
+			.getResourceAsStream(profile);
 		return (StructureDefinition) FHIRSerDeser.load(reader, Finals.SDS_FORMAT.XML);
 	}
 
 	EPackage loadSpec() {
 		InputStream reader = AHRQProfiler.class.getClassLoader()
-			.getResourceAsStream("fhir.ecore");
+			.getResourceAsStream(input);
 			log.debug("reader=" + reader);
 		return (EPackage) FHIRSerDeser.load(reader, Finals.SDS_FORMAT.ECORE);
 	}
@@ -123,36 +233,18 @@ public class AHRQProfiler implements Runnable {
 
 	public void applySnapshotElementToFeature(
 		ElementDefinition snapshotElem,
-		EStructuralFeature feature) {
+		EStructuralFeature outFeature) {
 		
 		// --- Apply cardinality ---
-		UnsignedInt uint = snapshotElem.getMin();
-		BigInteger bigInt = uint.getValue();
-		Integer min = bigInt.intValue();
-
-		if (min != null) {
-			feature.setLowerBound(min);
-		}
-
-		String maxStr = snapshotElem.getMax().getValue();
-		if (maxStr != null) {
-			if ("*".equals(maxStr)) {
-				feature.setUpperBound(EStructuralFeature.UNBOUNDED_MULTIPLICITY);
-			} else {
-				try {
-					feature.setUpperBound(Integer.parseInt(maxStr));
-				} catch (NumberFormatException e) {
-					System.err.println("⚠️ Invalid max cardinality: " + maxStr);
-				}
-			}
-		}
+		applyBounds(snapshotElem, outFeature);
+		applySlice(snapshotElem, outFeature);
 
 		// --- Add FHIR annotations ---
-		EAnnotation fhirAnnotation = feature.getEAnnotation(HL7_FHIR_URL);
+		EAnnotation fhirAnnotation = outFeature.getEAnnotation(HL7_FHIR_URL);
 		if (fhirAnnotation == null) {
 			fhirAnnotation = EcoreFactory.eINSTANCE.createEAnnotation();
 			fhirAnnotation.setSource(HL7_FHIR_URL);
-			feature.getEAnnotations().add(fhirAnnotation);
+			outFeature.getEAnnotations().add(fhirAnnotation);
 		}
 
 		// mustSupport
@@ -198,11 +290,11 @@ public class AHRQProfiler implements Runnable {
 		}
 
 		if (doc != null) {
-			EAnnotation genModelAnnotation = feature.getEAnnotation(ECORE_GENMODEL_URL);
+			EAnnotation genModelAnnotation = outFeature.getEAnnotation(ECORE_GENMODEL_URL);
 			if (genModelAnnotation == null) {
 				genModelAnnotation = EcoreFactory.eINSTANCE.createEAnnotation();
 				genModelAnnotation.setSource(ECORE_GENMODEL_URL);
-				feature.getEAnnotations().add(genModelAnnotation);
+				outFeature.getEAnnotations().add(genModelAnnotation);
 			}
 
 			genModelAnnotation.getDetails().put("documentation", doc);
@@ -353,9 +445,19 @@ public class AHRQProfiler implements Runnable {
 // }
 	
 	public static void main(String[] args) {
-		AHRQProfiler app = new AHRQProfiler();
-		app.run();
-	}
+        try {
+            AHRQProfiler app = new AHRQProfiler(args);
+            log.info("Start==>");
+			if (app.isHelp()) {
+                app.printUsage();
+                return;
+            }
+            app.run();
+            log.info("<==Finish");
+        } catch (CmdLineException e) {
+            log.error("Soaping is wrong.", e);
+        }
+    }
 
 	// public static OutputStream profileResource(EObject eObject) {
 	// 	URI ecoreURI =  URI.createFileURI("data/fhir.ecore");
