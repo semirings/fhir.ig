@@ -63,7 +63,7 @@
   </extension>
   <url value="http://fhir.org/guides/hrsa/uds-plus/StructureDefinition/de-identified-uds-plus-patient"/>
   <version value="1.1.0"/>
-  <name value="DeIdentifiedUDSPlusPatient"/>
+  <name value="Patient"/>
   <title value="De-Identified UDS Plus Patient"/>
   <status value="active"/>
   <experimental value="false"/>
