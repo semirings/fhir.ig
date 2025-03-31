@@ -102,11 +102,11 @@ public class AHRQProfiler implements Runnable {
 
             String[] parts = snapElemPath.split("\\.");
 			if (parts.length == 1) continue; // skip root element
-				String parentPath = String.join(".", Arrays.copyOf(parts, parts.length - 1));
-				String currentName = parts[parts.length - 1];
+			String parentPath = String.join(".", Arrays.copyOf(parts, parts.length - 1));
+			String currentName = parts[parts.length - 1];
 
-				String snapElemClassName = parts[0];
-				String snapElemFeatureName = parts[1];
+			String snapElemClassName = parts[0];
+			String snapElemFeatureName = parts[1];
 
             // Find the source EClass in the spec package
             EClassifier specElemClassifier = spec.getEClassifier(snapElemClassName);
@@ -151,10 +151,10 @@ public class AHRQProfiler implements Runnable {
 
 		StructureDefinitionDifferential diff = profile.getDifferential();
 		for (ElementDefinition diffElem : diff.getElement()) {
-			String path = diffElem.getPath().getValue();
-			String[] parts = path.split("\\.");
+			String diffPath = diffElem.getPath().getValue();
+			String[] parts = diffPath.split("\\.");
 			if (parts.length < 2) continue;
-	
+
 			String className = parts[0];
 			String featureName = parts[parts.length - 1].toLowerCase();
 	
