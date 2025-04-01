@@ -137,9 +137,6 @@ public class AHRQProfiler implements Runnable {
 						for(EObject eO : copyClassifier.eContents()) {
 							log.debug("eO.eClass().getName()={}", copyClass.getName());
 						}
-						// for( EObject eO : copyClassifier.eContents()) {
-						// 	log.info("from eO={}", eO.eClass().getName());
-						// }
 						continue;
 					}
 
@@ -148,49 +145,7 @@ public class AHRQProfiler implements Runnable {
 				applySlice(snapElem, outElemFeature);
 			}
 		}
-
-		StructureDefinitionDifferential diff = profile.getDifferential();
-		for (ElementDefinition diffElem : diff.getElement()) {
-			String diffPath = diffElem.getPath().getValue();
-			String[] parts = diffPath.split("\\.");
-			if (parts.length < 2) continue;
-
-			String className = parts[0];
-			String featureName = parts[parts.length - 1].toLowerCase();
-	
-			EClass eClass = pathToClass.get(className);
-			if (eClass == null) continue;
-	
-			EStructuralFeature feature = eClass.getEStructuralFeatures().stream()
-				.filter(f -> f.getName().equals(featureName))
-				.findFirst().orElse(null);
-	
-			if (feature == null) continue;
-	
-			// Update cardinality
-			if (diffElem.getMin() != null && diffElem.getMin().getValue() != null) {
-				feature.setLowerBound(diffElem.getMin().getValue().intValue());
-			}
-			if (diffElem.getMax() != null && diffElem.getMax().getValue() != null) {
-				String maxVal = diffElem.getMax().getValue();
-				feature.setUpperBound("*".equals(maxVal) ? -1 : Integer.parseInt(maxVal));
-			}
-	
-			// Add EAnnotation for other constraints, bindings, etc.
-			if (diffElem.hasShort()) {
-				EAnnotation annotation = feature.getEAnnotations().stream()
-					.filter(a -> "fhir.short".equals(a.getSource()))
-					.findFirst().orElseGet(() -> {
-						EAnnotation a = EcoreFactory.eINSTANCE.createEAnnotation();
-						a.setSource("fhir.short");
-						feature.getEAnnotations().add(a);
-						return a;
-					});
-				annotation.getDetails().put("value", diff.getShort());
-			}
-		}
-	
-    }
+	}
 
 	public void applySnapshotElementToFeature(
 		ElementDefinition snapshotElem,
@@ -248,6 +203,7 @@ public class AHRQProfiler implements Runnable {
 		}
 	}
 
+	// This method is not ready for prime time.
 	public void applyDifferential(StructureDefinition sd, EPackage ePackage) {
 		EList<ElementDefinition> differentials = sd.getDifferential().getElement();
 		if (differentials == null || differentials.isEmpty()) return;
@@ -286,17 +242,17 @@ public class AHRQProfiler implements Runnable {
 			}
 
 			// Add EAnnotation for other constraints, bindings, etc.
-			if (diff.hasShort()) {
-				EAnnotation annotation = feature.getEAnnotations().stream()
-					.filter(a -> "fhir.short".equals(a.getSource()))
-					.findFirst().orElseGet(() -> {
-						EAnnotation a = EcoreFactory.eINSTANCE.createEAnnotation();
-						a.setSource("fhir.short");
-						feature.getEAnnotations().add(a);
-						return a;
-					});
-				annotation.getDetails().put("value", diff.getShort());
-			}
+			// if (diff.hasShort()) {
+			// 	EAnnotation annotation = feature.getEAnnotations().stream()
+			// 		.filter(a -> "fhir.short".equals(a.getSource()))
+			// 		.findFirst().orElseGet(() -> {
+			// 			EAnnotation a = EcoreFactory.eINSTANCE.createEAnnotation();
+			// 			a.setSource("fhir.short");
+			// 			feature.getEAnnotations().add(a);
+			// 			return a;
+			// 		});
+			// 	annotation.getDetails().put("value", diff.getShort());
+			// }
     }
 }
 
