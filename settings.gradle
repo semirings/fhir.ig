@@ -1,4 +1,9 @@
-rootProject.name = 'psoppc.ig'
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            from(files("gradle/libraries.versions.toml"))
+        }
+    }
+}
 
-include ':fhir.serdeser'
-project(':fhir.serdeser').projectDir = new File(settingsDir, '../fhir.serdeser')
+rootProject.name = 'fhir.ig'

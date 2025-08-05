@@ -1,19 +1,16 @@
 plugins {
-    id 'application'
 	id 'java'
 	id 'java-library'
 	id 'eclipse'
     id 'maven-publish'
+    id 'org.springframework.boot' version '3.3.1'
+    id 'io.spring.dependency-management' version '1.1.5'
+    id 'org.xtext.xtend' version '4.0.0'
 }
 
-application {
-    applicationDefaultJvmArgs = ['-Dgreeting.language=en']
-    mainClass = 'org.psoppc.fhir.AHRQProfiler'
-}
-
-group = 'org.psoppc.fhir'
+group = 'org.hl7.fhir'
 version = '0.0.1' // Set project-level property
-def applicationName = 'psoppc.ig' // Local variable for the artifact name
+def applicationName = 'fhir.ig' // Local variable for the artifact name
 
 
 java {
@@ -33,6 +30,7 @@ sourceSets {
     main {
         java {
             srcDirs 'src/main/java'
+            srcDirs 'src/main/xtend'
             srcDirs 'src/main/resources'
            }
     }
@@ -45,29 +43,40 @@ configurations.all {
 }
 
 dependencies {
-    implementation 'org.hl7.fhir.emf:fhir.serdeser:0.0.1'
-	implementation 'org.hl7:fhir.emf:4.3.0'
-	implementation 'org.eclipse.emf:org.eclipse.emf.common:2.40.0'
-	implementation 'org.eclipse.emf:org.eclipse.emf.ecore:2.38.0'
-	implementation 'org.eclipse.emf:org.eclipse.emf.ecore.xmi:2.38.0'
+    implementation libs.fhirEmf
+    implementation libs.emfCommon
+    implementation libs.emfEcore
+    implementation libs.emfEcoreXMI
+    implementation libs.jacksonAnnotations
+    implementation libs.jacksonDatabind
 
-   	implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.6'
-   	
-    // CLI
-    implementation 'args4j:args4j:2.33'
-    
+    implementation libs.xtendCore
+    implementation libs.xtendLib
+    implementation libs.xtendStandalone
+   
    	// Logging
-    implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.19.0'
-    implementation 'org.apache.logging.log4j:log4j-core:2.19.0'
-	configurations.all {
-        exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
-    }
+	implementation libs.slf4jAPI
+	implementation libs.logbackClassic
     
-    testImplementation 'org.everit.json:org.everit.json.schema:1.5.0'
-    testImplementation 'com.networknt:json-schema-validator:1.0.42'
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.1'
+    testImplementation libs.logbackClassic
+    testImplementation libs.junitJupiter
+    testImplementation libs.junitJupiterAPI
+    testImplementation libs.emfEcoreXMI
 }
+
+def xtendGenDir = file("$buildDir/xtend-gen")
+task compileXtend(type: JavaExec) {
+    group = "build"
+    description = "Compiles Xtend sources to Java"
+    classpath = sourceSets.main.compileClasspath
+    mainClass = "org.eclipse.xtend.core.compiler.batch.Main"
+    args = [
+        "src/main/xtend",        // Input (Xtend source folder)
+        "-d", xtendGenDir, // Output dir for generated Java
+        "-classpath", sourceSets.main.runtimeClasspath.asPath
+    ]
+}
+compileJava.dependsOn compileXtend
 
 jar {
     manifest {
