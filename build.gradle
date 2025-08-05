@@ -5,7 +5,7 @@ plugins {
     id 'maven-publish'
     id 'org.springframework.boot' version '3.3.1'
     id 'io.spring.dependency-management' version '1.1.5'
-    id 'org.xtext.xtend' version '4.0.0'
+//    id 'org.xtext.xtend' version '4.0.0'
 }
 
 group = 'org.hl7.fhir'
@@ -36,6 +36,10 @@ sourceSets {
     }
 }
 
+configurations {
+    xtendCompiler
+}
+
 configurations.all {
     resolutionStrategy {
         force 'org.slf4j:slf4j-api:2.0.0'
@@ -50,9 +54,17 @@ dependencies {
     implementation libs.jacksonAnnotations
     implementation libs.jacksonDatabind
 
-    implementation libs.xtendCore
-    implementation libs.xtendLib
-    implementation libs.xtendStandalone
+    implementation libs.springWeb
+    implementation libs.springActuator
+    implementation libs.context
+    implementation libs.springTest
+    implementation libs.springSessionDataRedis
+    implementation libs.redis
+
+    xtendCompiler libs.xtextXbase
+    xtendCompiler libs.xtendCore
+    xtendCompiler libs.xtendLib
+    // xtendCompiler libs.xtendStandalone
    
    	// Logging
 	implementation libs.slf4jAPI
@@ -68,12 +80,12 @@ def xtendGenDir = file("$buildDir/xtend-gen")
 task compileXtend(type: JavaExec) {
     group = "build"
     description = "Compiles Xtend sources to Java"
-    classpath = sourceSets.main.compileClasspath
+    classpath = configurations.xtendCompiler
     mainClass = "org.eclipse.xtend.core.compiler.batch.Main"
     args = [
         "src/main/xtend",        // Input (Xtend source folder)
         "-d", xtendGenDir, // Output dir for generated Java
-        "-classpath", sourceSets.main.runtimeClasspath.asPath
+        "-classpath", configurations.xtendCompiler.asPath + File.pathSeparator + sourceSets.main.runtimeClasspath.asPath
     ]
 }
 compileJava.dependsOn compileXtend

@@ -6,10 +6,10 @@ import java.util.List
  * FieldSpec captures the FHIR element information needed to generate Java code
  */
 class FieldSpec {
-    String path        // Full FHIR path, e.g. "Patient.name.family"
-    String type        // FHIR type, e.g. "string", "boolean", "integer"
-    int min            // min cardinality
-    String max         // max cardinality ("*" or numeric)
+    public String path        // Full FHIR path, e.g. "Patient.name.family"
+    public String type        // FHIR type, e.g. "string", "boolean", "integer"
+    public int min            // min cardinality
+    public String max         // max cardinality ("*" or numeric)
 }
 
 /**
@@ -22,7 +22,7 @@ class JavaGenerator implements Generator {
     /**
      * Generate full class source
      */
-    def String generateClass(String className, List<FieldSpec> fields) '''
+    override String generateClass(String className, List<FieldSpec> fields) '''
         public class «className» {
 
         «FOR field : fields»
