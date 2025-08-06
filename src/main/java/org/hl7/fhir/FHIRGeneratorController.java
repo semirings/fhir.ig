@@ -56,7 +56,7 @@ public class FHIRGeneratorController {
     public ResponseEntity<String> handleFileUpload(@RequestParam("file") MultipartFile file) {
         String contentType = file.getContentType();
         if ("application/json".equalsIgnoreCase(contentType)) {
-            service.process(file);
+            service.processJson(file);
             return ResponseEntity.ok("JSON file uploaded");
         } else if ("application/xml".equalsIgnoreCase(contentType) || "text/xml".equalsIgnoreCase(contentType)) {
             return ResponseEntity.ok("XML file uploaded");

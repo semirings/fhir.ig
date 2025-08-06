@@ -1,5 +1,6 @@
 package org.hl7.fhir.services;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 import org.slf4j.Logger;
@@ -9,14 +10,18 @@ import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import org.hl7.fhir.codegen.JavaGenerator;
 
 public class FHIRGeneratorService {
 
         Logger log = LoggerFactory.getLogger(FHIRGeneratorService.class);
 
-    public void processJaon(MultipartFile file) {
-        InoutStream jsonStream = file.getInputStream();
-        
+    public void processJson(MultipartFile file) {
+        try {
+            InputStream jsonStream = file.getInputStream();
+        } catch (IOException e) {
+            log.error(", e");
+        }
     }
     
 
