@@ -1,8 +1,9 @@
 package org.hl7.fhir.services;
 
-import java.io.IOException;
 import java.io.InputStream;
 
+import org.hl7.fhir.codegen.FieldSpec;
+import org.hl7.fhir.codegen.JavaGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,7 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import org.hl7.fhir.codegen.JavaGenerator;
 
 public class FHIRGeneratorService {
 
@@ -19,7 +19,8 @@ public class FHIRGeneratorService {
     public void processJson(MultipartFile file) {
         try {
             InputStream jsonStream = file.getInputStream();
-        } catch (IOException e) {
+            iterateSnapshotsJson(jsonStream);
+        } catch (Exception e) {
             log.error(", e");
         }
     }
@@ -41,11 +42,12 @@ public class FHIRGeneratorService {
         }
 
         for (JsonNode element : snapshot) {
-            String id = element.path("id").asText();
-            String path = element.path("path").asText();
-            int min = element.path("min").asInt();
-            String max = element.path("max").asText();
-            JsonNode typeNode = element.path("type");
+            FieldSpec fieldSpec = new FieldSpec():
+            fieldSpec.id = element.path("id").asText();
+            fieldSpec.path = element.path("path").asText();
+            fieldSpec.min = element.path("min").asInt();
+            fieldSpec.max = element.path("max").asText();
+            String typeNode = element.path("type").asText();
 
             log.info("Element: " + path + " (id=" + id + ")");
             log.info("Cardinality: " + min + ".." + max);
@@ -57,6 +59,8 @@ public class FHIRGeneratorService {
                 }
             }
             JavaGenerator generator = new JavaGenerator();
+        /Users/gcr/.ssh/id_ed25519_semirings
+    generator.generateClass(typeNode,fieldSpec);
         }
 }
 

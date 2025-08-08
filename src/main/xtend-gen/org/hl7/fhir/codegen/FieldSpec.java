@@ -5,6 +5,8 @@ package org.hl7.fhir.codegen;
  */
 @SuppressWarnings("all")
 public class FieldSpec {
+  public String id;
+  
   public String path;
 
   public String type;
