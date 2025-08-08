@@ -1,19 +1,7 @@
-# AHRQ profile
-
-This is a project that takes an existing, conformant FHIR profile and with it and the FHIR specification, it outputs an ecore that conforms to the profile.
-
-# FHIR Profile to Ecore Converter
-
-This project generates an **Ecore model** from a FHIR **StructureDefinition profile** and the official **FHIR base specification**. The generated Ecore reflects the **snapshot** (complete element tree) and then refines it using the **differential**, making it conformant to the given profile.
-
-There are two profiles included in the src/main/resources directory.  Currently the code reads the file from here.  Other profiles can be added.  Add them here for now.  Each add requires a new build.
-
----
-
 ## 🔍 What It Does
 
 Given:
-- A valid FHIR **StructureDefinition** (in XML format),
+- A valid FHIR **StructureDefinition** (in JSON or XML format),
 - A reference to the official **FHIR base definitions** (implicitly loaded if needed),
 
 This tool:
